@@ -1,0 +1,9 @@
+graph TD
+    A[Client: Browser Extension / Web Frontend] --> B[REST API Backend: app.py]
+    B --> C[NLP Inference Models]
+    C --> D[Standard Model: model_output]
+    C --> E[RoBERTa Model: model_output_roberta]
+    D --> F[Response: Fake/Real Prediction]
+    E --> F
+    F --> B
+    B --> A

@@ -1,0 +1,416 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0b0d12;
+      --surface:  #111420;
+      --border:   #1e2235;
+      --border2:  #252a40;
+      --text:     #c8cfe8;
+      --muted:    #4a5070;
+      --accent:   #4f6ef7;
+      --fake:     #f04f4f;
+      --fake-dim: #2a1414;
+      --real:     #36c97e;
+      --real-dim: #0e2419;
+      --amber:    #f5a623;
+      --mono:     'JetBrains Mono', monospace;
+      --display:  'Syne', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 360px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .wrap { padding: 14px 14px 16px; }
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-row { display: flex; align-items: center; gap: 8px; }
+
+    .shield {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, #4f6ef7 0%, #2a40c8 100%);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+      box-shadow: 0 0 14px rgba(79,110,247,0.45);
+    }
+
+    .title {
+      font-family: var(--display);
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.3px;
+      line-height: 1;
+    }
+    .subtitle {
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 3px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    #health-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: all 0.4s;
+      margin-top: 4px;
+    }
+    #health-dot.online  { background: var(--real); box-shadow: 0 0 7px var(--real); animation: gpulse 2s infinite; }
+    #health-dot.offline { background: var(--fake); box-shadow: 0 0 7px var(--fake); }
+    @keyframes gpulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    #preview-box {
+      display: none;
+      margin-bottom: 10px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: rgba(79,110,247,0.07);
+      padding: 8px 10px;
+    }
+    .preview-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+    #selected-preview {
+      color: #8891b8;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    #no-text-box {
+      margin-bottom: 10px;
+      border: 1px dashed #252a40;
+      border-radius: 6px;
+      padding: 10px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 11px;
+    }
+    #no-text-box strong { color: var(--amber); }
+
+    .field-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 8px 10px;
+      resize: none;
+      outline: none;
+      line-height: 1.55;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--muted); }
+
+    #check {
+      width: 100%;
+      margin-top: 10px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 9px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    #check:hover { background: #5f7ef8; box-shadow: 0 0 18px rgba(79,110,247,0.4); }
+    #check:active { transform: scale(0.98); }
+    #check:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    #result { display: none; margin-top: 14px; }
+
+    .divider { height: 1px; background: var(--border); margin: 0 0 12px; }
+
+    .verdict-banner {
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 1px solid;
+      position: relative;
+      overflow: hidden;
+    }
+    .verdict-banner::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+    }
+    .verdict-banner.fake { background: var(--fake-dim); border-color: rgba(240,79,79,0.25); }
+    .verdict-banner.fake::before { background: linear-gradient(90deg, var(--fake), transparent); }
+    .verdict-banner.real { background: var(--real-dim); border-color: rgba(54,201,126,0.25); }
+    .verdict-banner.real::before { background: linear-gradient(90deg, var(--real), transparent); }
+
+    .verdict-row { display: flex; align-items: center; justify-content: space-between; }
+    .verdict-text { font-family: var(--display); font-size: 18px; font-weight: 800; }
+    .verdict-text.fake { color: var(--fake); }
+    .verdict-text.real { color: var(--real); }
+
+    .conf-pill {
+      font-size: 10px; font-weight: 700;
+      padding: 3px 9px; border-radius: 20px; letter-spacing: 0.5px;
+    }
+    .conf-pill.fake { background: rgba(240,79,79,0.14); color: var(--fake); }
+    .conf-pill.real { background: rgba(54,201,126,0.14); color: var(--real); }
+
+    .agree-row { margin-top: 6px; }
+    .badge {
+      display: inline-block; font-size: 9px;
+      padding: 2px 7px; border-radius: 3px;
+      text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700;
+    }
+    .badge.agree    { background: rgba(54,201,126,0.1); color: var(--real); }
+    .badge.disagree { background: rgba(245,166,35,0.12); color: var(--amber); }
+
+    .bar-section { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+    .bar-row { display: flex; align-items: center; gap: 7px; }
+    .bar-lbl { width: 28px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; flex-shrink: 0; }
+    .bar-lbl.fake { color: var(--fake); }
+    .bar-lbl.real { color: var(--real); }
+    .bar-track { flex: 1; height: 4px; background: #1a1d2e; border-radius: 99px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 99px; width: 0%; transition: width 0.7s cubic-bezier(.4,0,.2,1); }
+    .bar-fill.fake { background: var(--fake); }
+    .bar-fill.real { background: var(--real); }
+    .bar-pct { width: 34px; text-align: right; font-size: 10px; color: var(--muted); flex-shrink: 0; }
+
+    .model-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .model-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 7px;
+      padding: 9px 10px;
+    }
+    .model-name {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px;
+      color: var(--muted); margin-bottom: 5px; font-weight: 600;
+    }
+    .model-verdict { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+    .model-verdict.fake { color: var(--fake); }
+    .model-verdict.real { color: var(--real); }
+
+    #flags {
+      display: none;
+      background: var(--surface);
+      border: 1px solid rgba(240,79,79,0.2);
+      border-radius: 7px;
+      padding: 9px 10px;
+      margin-bottom: 10px;
+    }
+    .flags-label {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--fake); margin-bottom: 7px; font-weight: 700;
+    }
+    #flags-content { display: flex; flex-wrap: wrap; gap: 5px; }
+    .token-chip {
+      background: rgba(240,79,79,0.09);
+      border: 1px solid rgba(240,79,79,0.2);
+      color: #e88; border-radius: 4px;
+      padding: 2px 8px; font-size: 10px;
+    }
+
+    #clear {
+      width: 100%;
+      background: none;
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 9px;
+      padding: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      transition: all 0.2s;
+    }
+    #clear:hover { border-color: var(--muted); color: var(--text); }
+
+    .spinner {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeUp 0.25s ease forwards; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-row">
+      <div class="shield">🛡</div>
+      <div>
+        <div class="title">NewsGuard</div>
+        <div class="subtitle">DistilBERT · RoBERTa · Ensemble</div>
+      </div>
+    </div>
+    <div id="health-dot" title="Checking backend…"></div>
+  </div>
+
+  <!-- Selected text preview -->
+  <div id="preview-box">
+    <div class="preview-label">▶ Selected text</div>
+    <div id="selected-preview"></div>
+  </div>
+
+  <!-- No-text hint -->
+  <div id="no-text-box">
+    Highlight article text on any page,<br>
+    right-click → <strong>"Check with News Validator"</strong><br>
+    or paste manually below.
+  </div>
+
+  <!-- Textarea -->
+  <div class="field-label">Input text</div>
+  <textarea id="manual-text" rows="4" placeholder="Paste article text here…"></textarea>
+
+  <button id="check">Analyze</button>
+
+  <!-- RESULTS -->
+  <div id="result">
+    <div class="divider"></div>
+
+    <!-- Verdict banner -->
+    <div id="verdict-banner" class="verdict-banner fade-in">
+      <div class="verdict-row">
+        <div id="ensemble-label" class="verdict-text"></div>
+        <div id="ensemble-conf" class="conf-pill"></div>
+      </div>
+      <div class="agree-row">
+        <span id="agree-badge" class="badge"></span>
+      </div>
+      <div class="bar-section">
+        <div class="bar-row">
+          <div class="bar-lbl fake">Fake</div>
+          <div class="bar-track"><div id="ens-bar-fake" class="bar-fill fake"></div></div>
+          <div id="ens-prob-fake" class="bar-pct">0%</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-lbl real">Real</div>
+          <div class="bar-track"><div id="ens-bar-real" class="bar-fill real"></div></div>
+          <div id="ens-prob-real" class="bar-pct">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-model breakdown -->
+    <div class="model-grid fade-in">
+      <div class="model-card">
+        <div class="model-name">DistilBERT</div>
+        <div id="db-label" class="model-verdict"></div>
+        <div class="bar-section">
+          <div class="bar-row">
+            <div class="bar-lbl fake" style="width:16px">F</div>
+            <div class="bar-track"><div id="db-bar-fake" class="bar-fill fake"></div></div>
+            <div id="db-prob-fake" class="bar-pct">0%</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-lbl real" style="width:16px">R</div>
+            <div class="bar-track"><div id="db-bar-real" class="bar-fill real"></div></div>
+            <div id="db-prob-real" class="bar-pct">0%</div>
+          </div>
+        </div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">RoBERTa</div>
+        <div id="rb-label" class="model-verdict"></div>
+        <div class="bar-section">
+          <div class="bar-row">
+            <div class="bar-lbl fake" style="width:16px">F</div>
+            <div class="bar-track"><div id="rb-bar-fake" class="bar-fill fake"></div></div>
+            <div id="rb-prob-fake" class="bar-pct">0%</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-lbl real" style="width:16px">R</div>
+            <div class="bar-track"><div id="rb-bar-real" class="bar-fill real"></div></div>
+            <div id="rb-prob-real" class="bar-pct">0%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- XAI Tokens -->
+    <div id="flags">
+      <div class="flags-label">⚑ XAI — key tokens</div>
+      <div id="flags-content"></div>
+    </div>
+
+    <button id="clear">↺ Clear &amp; check another</button>
+  </div>
+
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Fake News Checker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f9fafb; min-height: 100vh; }
+  .bar-wrap { flex: 1; height: 8px; background: #e5e7eb; border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #d1d5db; border-top-color: #374151; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .tab-btn { padding: 6px 16px; font-size: 13px; border-radius: 6px; border: none; cursor: pointer; background: transparent; color: #6b7280; }
+  .tab-btn.active { background: #111827; color: #fff; }
+  .sentence-chip { display: inline; line-height: 1.9; padding: 1px 0; border-radius: 3px; cursor: default; }
+  .heat-legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af; }
+  .heat-swatch { width: 14px; height: 14px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body class="p-6">
+
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-semibold text-gray-800 mb-1">AI Fake News Checker</h1>
+  <p class="text-sm text-gray-500 mb-5">DistilBERT + RoBERTa ensemble with sentence-level XAI heatmap</p>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+    <label class="text-xs text-gray-400 uppercase tracking-wide mb-2 block">Article text</label>
+    <textarea id="articleInput" rows="7" placeholder="Paste the full article here..."
+      class="w-full text-sm border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:border-gray-400 text-gray-800"></textarea>
+    <div class="flex gap-2 mt-3 items-center">
+      <button id="analyzeBtn" onclick="runAll()"
+        class="bg-gray-900 text-white text-sm px-5 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition">
+        Analyze ↗
+      </button>
+      <button onclick="clearAll()"
+        class="text-sm px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition">
+        Clear
+      </button>
+      <span id="charCount" class="text-xs text-gray-400 ml-auto">0 chars</span>
+    </div>
+  </div>
+
+  <div id="loading" class="hidden text-sm text-gray-500 py-2 mb-2">
+    <span class="spinner"></span><span id="loadingMsg">Running analysis...</span>
+  </div>
+  <div id="errorBox" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 mb-4"></div>
+
+  <div id="resultArea" class="hidden">
+
+    <div class="flex gap-1 mb-3 bg-gray-100 p-1 rounded-lg w-fit">
+      <button class="tab-btn active" id="tab-ensemble" onclick="showTab('ensemble')">Ensemble verdict</button>
+      <button class="tab-btn" id="tab-heatmap" onclick="showTab('heatmap')">Sentence heatmap</button>
+      <button class="tab-btn" id="tab-models" onclick="showTab('models')">Individual models</button>
+    </div>
+
+    <!-- TAB: ENSEMBLE -->
+    <div id="panel-ensemble">
+      <div class="bg-white rounded-xl border border-gray-200 p-4 mb-3">
+        <div class="text-xs text-gray-400 uppercase tracking-wide mb-3">Ensemble verdict</div>
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span id="ensVerdict" class="text-base font-medium px-3 py-1 rounded-lg"></span>
+            <span id="ensConf" class="text-sm text-gray-500"></span>
+          </div>
+          <span id="agreeBadge" class="text-xs px-3 py-1 rounded-lg font-medium"></span>
+        </div>
+        <div class="flex items-center gap-3 text-xs mb-2">
+          <span class="w-8 text-red-600">Fake</span>
+          <div class="bar-wrap"><div id="barFake" class="bar-fill bg-red-400" style="width:0%"></div></div>
+          <span id="probFake" class="w-10 text-right text-gray-500">0%</span>
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+          <span class="w-8 text-green-600">Real</span>
+          <div class="bar-wrap"><div id="barReal" class="bar-fill bg-green-500" style="width:0%"></div></div>
+          <span id="probReal" class="w-10 text-right text-gray-500">0%</span>
+        </div>
+      </div>
+      <div id="flagsCard" class="hidden bg-white rounded-xl border border-gray-200 p-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wide mb-2">Red flags (token-level XAI)</div>
+        <div id="flagsList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: HEATMAP -->
+    <div id="panel-heatmap" class="hidden">
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs text-gray-400 uppercase tracking-wide">Sentence-level heatmap</div>
+          <div class="heat-legend">
+            <span class="heat-swatch" style="background:#dcfce7;border:1px solid #bbf7d0;"></span><span>Real</span>
+            <span class="heat-swatch" style="background:#fef9c3;border:1px solid #fde68a;"></span><span>Uncertain</span>
+            <span class="heat-swatch" style="background:#fee2e2;border:1px solid #fecaca;"></span><span>Suspicious</span>
+            <span class="heat-swatch" style="background:#ef4444;border:1px solid #dc2626;"></span><span>Fake</span>
+          </div>
+        </div>
+        <div id="heatmapText" class="text-sm text-gray-800 leading-8"></div>
+        <div class="mt-4 border-t border-gray-100 pt-3">
+          <div class="text-xs text-gray-400 uppercase tracking-wide mb-2">Sentence breakdown</div>
+          <div id="sentenceList" class="space-y-1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: INDIVIDUAL MODELS -->
+    <div id="panel-models" class="hidden">
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wide mb-3">Individual models</div>
+        <div class="flex items-center justify-between py-2 border-b border-gray-100 text-sm">
+          <span class="text-gray-500">DistilBERT</span>
+          <span id="dbVerdict" class="px-3 py-0.5 rounded-lg text-xs font-medium"></span>
+          <span id="dbConf" class="text-gray-400 text-xs w-20 text-right"></span>
+        </div>
+        <div class="flex items-center justify-between py-2 text-sm">
+          <span class="text-gray-500">RoBERTa</span>
+          <span id="rbVerdict" class="px-3 py-0.5 rounded-lg text-xs font-medium"></span>
+          <span id="rbConf" class="text-gray-400 text-xs w-20 text-right"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const input = document.getElementById('articleInput');
+input.addEventListener('input', () => {
+  document.getElementById('charCount').innerText = input.value.length + ' chars';
+});
+
+function clearAll() {
+  input.value = '';
+  document.getElementById('charCount').innerText = '0 chars';
+  document.getElementById('resultArea').classList.add('hidden');
+  document.getElementById('errorBox').classList.add('hidden');
+}
+
+function showTab(name) {
+  ['ensemble','heatmap','models'].forEach(t => {
+    document.getElementById('panel-' + t).classList.add('hidden');
+    document.getElementById('tab-' + t).classList.remove('active');
+  });
+  document.getElementById('panel-' + name).classList.remove('hidden');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function setVerdict(elId, prediction) {
+  const el = document.getElementById(elId);
+  el.innerText = prediction;
+  el.className = prediction === 'Fake'
+    ? 'px-3 py-0.5 rounded-lg text-xs font-medium bg-red-100 text-red-700'
+    : 'px-3 py-0.5 rounded-lg text-xs font-medium bg-green-100 text-green-700';
+}
+
+// Map fake probability to background + border color
+function heatColor(probFake) {
+  if (probFake >= 70) return { bg: '#ef4444', border: '#dc2626', text: '#fff' };
+  if (probFake >= 50) return { bg: '#fee2e2', border: '#fecaca', text: '#7f1d1d' };
+  if (probFake >= 35) return { bg: '#fef9c3', border: '#fde68a', text: '#713f12' };
+  return { bg: '#dcfce7', border: '#bbf7d0', text: '#14532d' };
+}
+
+async function runAll() {
+  const text = input.value.trim();
+  if (!text) return;
+
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  document.getElementById('resultArea').classList.add('hidden');
+  document.getElementById('errorBox').classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+
+  try {
+    document.getElementById('loadingMsg').innerText = 'Running ensemble...';
+    const [compareRes, sentenceRes] = await Promise.all([
+      fetch('http://127.0.0.1:8000/predict/compare', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      }),
+      fetch('http://127.0.0.1:8000/predict/sentences', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+    ]);
+
+    if (!compareRes.ok) throw new Error(`Compare error ${compareRes.status}`);
+    if (!sentenceRes.ok) throw new Error(`Sentence error ${sentenceRes.status}`);
+
+    const data = await compareRes.json();
+    const sentData = await sentenceRes.json();
+
+    // ── Ensemble tab ──
+    const e = data.ensemble;
+    const ensEl = document.getElementById('ensVerdict');
+    ensEl.innerText = e.prediction;
+    ensEl.className = e.prediction === 'Fake'
+      ? 'text-base font-medium px-3 py-1 rounded-lg bg-red-100 text-red-700'
+      : 'text-base font-medium px-3 py-1 rounded-lg bg-green-100 text-green-700';
+    document.getElementById('ensConf').innerText = e.confidence.toFixed(1) + '% confidence';
+    const badge = document.getElementById('agreeBadge');
+    badge.innerText = e.models_agree ? '✓ Both models agree' : '⚠ Models disagree';
+    badge.className = e.models_agree
+      ? 'text-xs px-3 py-1 rounded-lg font-medium bg-green-100 text-green-700'
+      : 'text-xs px-3 py-1 rounded-lg font-medium bg-yellow-100 text-yellow-700';
+    document.getElementById('barFake').style.width = e.prob_fake.toFixed(1) + '%';
+    document.getElementById('barReal').style.width = e.prob_real.toFixed(1) + '%';
+    document.getElementById('probFake').innerText = e.prob_fake.toFixed(1) + '%';
+    document.getElementById('probReal').innerText = e.prob_real.toFixed(1) + '%';
+
+    const allFlags = [...new Set([
+      ...(data.distilbert?.red_flags || []),
+      ...(data.roberta?.red_flags || [])
+    ])];
+    const flagsCard = document.getElementById('flagsCard');
+    if (allFlags.length) {
+      document.getElementById('flagsList').innerHTML = allFlags.map(f =>
+        `<span class="inline-block bg-red-50 text-red-700 border border-red-200 text-xs rounded-full px-2 py-0.5 mr-1 mb-1">${f}</span>`
+      ).join('');
+      flagsCard.classList.remove('hidden');
+    } else {
+      flagsCard.classList.add('hidden');
+    }
+
+    // ── Individual models tab ──
+    setVerdict('dbVerdict', data.distilbert.prediction);
+    document.getElementById('dbConf').innerText = data.distilbert.confidence.toFixed(1) + '% conf';
+    setVerdict('rbVerdict', data.roberta.prediction);
+    document.getElementById('rbConf').innerText = data.roberta.confidence.toFixed(1) + '% conf';
+
+    // ── Heatmap tab ──
+    const sentences = sentData.sentences;
+    const heatHTML = sentences.map(s => {
+      const c = heatColor(s.prob_fake);
+      const tip = `${s.label} — Fake: ${s.prob_fake.toFixed(1)}% / Real: ${s.prob_real.toFixed(1)}%`;
+      return `<span class="sentence-chip" style="background:${c.bg};border-bottom:2px solid ${c.border};color:${c.text};padding:1px 2px;border-radius:3px;" title="${tip}">${s.sentence} </span>`;
+    }).join(' ');
+    document.getElementById('heatmapText').innerHTML = heatHTML;
+
+    // Sentence list sorted by suspicion
+    const sorted = [...sentences].sort((a, b) => b.prob_fake - a.prob_fake);
+    document.getElementById('sentenceList').innerHTML = sorted.slice(0, 8).map(s => {
+      const c = heatColor(s.prob_fake);
+      const short = s.sentence.length > 80 ? s.sentence.substring(0, 80) + '…' : s.sentence;
+      return `
+        <div class="flex items-center gap-2 text-xs py-1">
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${c.bg};border:1.5px solid ${c.border};"></span>
+          <span class="text-gray-600 flex-1 truncate">${short}</span>
+          <span class="font-medium flex-shrink-0" style="color:${c.text === '#fff' ? '#ef4444' : c.text}">${s.prob_fake.toFixed(1)}% fake</span>
+        </div>`;
+    }).join('');
+
+    document.getElementById('resultArea').classList.remove('hidden');
+    showTab('ensemble');
+
+  } catch(err) {
+    const box = document.getElementById('errorBox');
+    box.innerHTML = `Could not reach backend at <code>http://127.0.0.1:8000</code>. Make sure your server is running with <code>uvicorn app:app --reload</code>.<br><br>${err.message}`;
+    box.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('loading').classList.add('hidden');
+  }
+}
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) runAll();
+});
+</script>
+</body>
+</html>

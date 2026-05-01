@@ -1,0 +1,8 @@
+﻿__pycache__/
+*.pyc
+.env
+.DS_Store
+backend/venv/
+research/data/*
+backend/model_output
+backend/model_output_roberta

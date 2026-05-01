@@ -1,0 +1,12 @@
+flowchart TD
+    A[User highlights text on webpage] --> B[User clicks browser extension icon]
+    B --> C[Extension popup opens]
+    C --> D[User clicks 'Verify' button]
+    D --> E[Extension sends text to backend API via fetch]
+    E --> F[Backend receives request in app.py]
+    F --> G[Backend preprocesses text]
+    G --> H[Backend runs inference on selected model]
+    H --> I[Model returns prediction: Fake or Real]
+    I --> J[Backend sends response back to extension]
+    J --> K[Extension displays result in popup]
+    K --> L[User sees 'Fake' or 'Real' verdict]
