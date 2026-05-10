@@ -1,0 +1,229 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{balance}
+\usepackage{float}
+
+\begin{document}
+
+\title{Trust but Verify: Real-Time Misinformation Detection via an Explainable Dual-Transformer Web Extension}
+
+\author{
+\IEEEauthorblockN{Nithya N}
+\IEEEauthorblockA{\textit{Alliance School of Advanced Computing}} 
+\textit{Alliance University, Bengaluru, India }
+}
+
+
+
+\maketitle
+
+\begin{abstract}
+The rapid spread of misinformation online highlights the need for quick, transparent verification tools. Manual fact-checking, while accurate, is too slow to stop viral fake news in its tracks. This paper introduces an automated detection framework that brings advanced natural language processing (NLP) directly to the user through a browser extension. Instead of a single algorithm, we use an ensemble of DistilBERT and RoBERTa models. This pairing combines RoBERTa's deep reading comprehension with DistilBERT's fast inference speeds. Because users often distrust black-box AI, we've included Explainable AI (XAI) using Integrated Gradients to highlight the specific words influencing the model's decision. Operating on a FastAPI backend, the system lets users verify content directly on the page they are reading. Testing on the WELFake dataset shows a 96.4\% accuracy rate, with the entire detection and explanation process taking under 250 milliseconds, making it a practical tool for everyday use.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Fake News, NLP, Transformers, RoBERTa, DistilBERT, Explainable AI, Browser Extension
+\end{IEEEkeywords}
+
+\section{Introduction}
+Social media has made it incredibly easy to publish information globally. While this has benefits, it also means unverified and fabricated stories can reach millions in an instant. This "fake news" is no longer just annoying; it's a real threat that has influenced elections, health decisions, and financial markets \cite{b4}. Fabricated stories are often designed to trigger strong emotions, which makes them spread faster and further than factual reporting \cite{b9}.
+
+Currently, we rely heavily on organizations like Snopes or Reuters for fact-checking. However, human verification can't keep up with the sheer volume of data created every day. The delay between a fake story going viral and it being debunked means the damage is often already done. 
+
+Automated tools are essential to close this gap. Early models using algorithms like Support Vector Machines (SVM) or Naive Bayes were okay at catching obvious clickbait but failed against sophisticated disinformation \cite{b5}. The introduction of Transformer models, like BERT \cite{b2}, changed this by allowing AI to understand context and nuance much better than before \cite{b1}.
+
+But creating an accurate model in a lab is only half the battle. Large Language Models (LLMs) are often slow, expensive, and opaque. If an algorithm just says "Fake" without explaining why, users—especially those who agree with the fake article—are likely to reject the verdict \cite{b14}. Also, forcing users to leave the page they are reading to check a fact is a major roadblock to adoption.
+
+We've built a solution that tackles these issues. It's a fast, accurate, and explainable fake news detector that works right in the browser. Our main contributions are:
+
+\begin{itemize}
+\item \textbf{A Dual-Model Ensemble:} We combined DistilBERT and RoBERTa to get high accuracy without sacrificing the speed needed for a web tool.
+\item \textbf{Clear Explanations (XAI):} We use Integrated Gradients to show users exactly which words triggered a "fake" warning, making the AI's reasoning easy to understand.
+\item \textbf{Sentence-Level Heatmaps:} Since articles often hide lies among truths, our tool can scan text sentence-by-sentence to pinpoint the false claims.
+\item \textbf{Practical Architecture:} The system uses a fast FastAPI backend and a Chrome extension to make advanced NLP accessible and easy to use.
+\end{itemize}
+
+\section{Background}
+The fight against automated fake news isn't just a coding problem; it sits at the busy intersection of computer science, cognitive psychology, and linguistics. Understanding how a lie spreads is just as important as knowing what the lie is.
+
+\subsection{The Economics and Architecture of Disinformation}
+To understand why fake news is so pervasive, we have to look at the money. The modern internet runs on an attention economy. Clicks, shares, and user engagement directly translate into advertising revenue. Fabricated stories are incredibly cheap to produce compared to actual investigative journalism, yet they yield massively disproportionate returns. By engineering headlines that provoke anger or fear, publishers game social media algorithms that prioritize engagement over accuracy. 
+
+This has evolved from isolated individuals looking for a quick payout into coordinated, state-sponsored operations and organized troll farms. These groups use automated bot networks to artificially inflate the popularity of a false narrative, making it trend globally within hours. Once a story is trending, legitimate news outlets are often forced to cover it, inadvertently giving the false claim oxygen. Detecting these campaigns requires more than just reading the text; it requires understanding the sophisticated, adversarial nature of the modern digital landscape.
+
+\subsection{From Word Counts to Deep Learning}
+Initially, researchers treated misinformation much like email spam. They relied heavily on manual feature engineering, using techniques like Term Frequency-Inverse Document Frequency (TF-IDF) to count specific stylistic quirks. Systems looked for red flags such as excessive capitalization, heavy use of emotional adjectives, or strings of exclamation marks \cite{b5}. While these lexical, rule-based systems worked well in the early days of social media, they quickly became obsolete. Malicious actors adapted, employing writers or algorithms that could perfectly mimic the dry, objective tone of legitimate news outlets. Once the tone sounded professional, the spam filters failed completely.
+
+To catch these more sophisticated fakes, the focus shifted to deep learning, specifically Recurrent Neural Networks (RNNs) and Long Short-Term Memory (LSTM) networks \cite{b10}. Unlike simple word counters, LSTMs read text sequentially, allowing them to grasp the context of a word based on what came before it. However, they hit a hard mathematical wall when analyzing full-length news articles. Because they process information linearly, one word at a time, LSTMs suffer from the "vanishing gradient" problem. A common tactic in modern disinformation is to write a completely factual opening paragraph to build the reader's trust, and then bury the fabricated claim down in the eighth paragraph. By the time a sequential LSTM reaches the end of the text, its mathematical memory of the crucial context established in those opening sentences has degraded or vanished entirely.
+
+\subsection{Transformers and the Need for Explainability}
+The landscape changed entirely with the introduction of the Transformer architecture by Vaswani et al. \cite{b1}. By using a self-attention mechanism, Transformers process entire sequences simultaneously. They evaluate the semantic relationship between every single word in a document all at once, regardless of how far apart those words are. This completely solved both the memory limitations and the speed bottlenecks of LSTMs.
+
+BERT \cite{b2} established the new baseline for semantic understanding, and its successors specialized further. RoBERTa \cite{b3} was trained on vastly larger datasets using dynamic masking, making it incredibly resilient to tricky, adversarial writing. Meanwhile, DistilBERT \cite{b6} utilized a process called knowledge distillation to compress this deep understanding into a smaller, much faster model. Our system deliberately pairs RoBERTa's deep analytical power with DistilBERT's lightning-fast reflexes.
+
+Yet, achieving high accuracy in a lab doesn't solve the human problem. Humans are cognitively wired to process information using mental shortcuts. One of the most exploited shortcuts is the "illusory truth effect," where people are more likely to believe a statement is true simply because they have been exposed to it multiple times. Bad actors exploit this by flooding platforms with the same fabricated claim from dozens of seemingly independent sources.
+
+Furthermore, algorithmic curation naturally creates echo chambers. When an individual is surrounded by a consensus of their peers sharing a specific fake news article, the social cost of skepticism is high. When people are abruptly confronted with algorithmic verdicts that contradict these deep-seated beliefs, they experience intense cognitive dissonance. Instead of accepting the correction, users frequently reject the evidence, distrust the fact-checker, and double down on their original stance \cite{b14}. If an AI acts as a "black box" and simply labels an article as "Fake" without showing its math, skeptical users are highly likely to dismiss the tool as a biased censorship mechanism. 
+
+Explainable AI (XAI) bridges this critical trust gap. By making the AI's thought process transparent, we shift the dynamic from an authoritative machine dictating the truth to a collaborative tool helping the user investigate. Traditional XAI methods like LIME or SHAP are popular, but they work by repeatedly tweaking the input text hundreds of times to see what changes the model's mind—a process that takes several seconds and is far too slow for a browser extension. Instead, we implemented Integrated Gradients \cite{b7}. This method calculates the exact mathematical gradients of the model's decision in a single, optimized process, providing rapid highlights of the specific words that triggered the classification.
+
+\section{Methodology and Engineering the Ensemble}
+When we set out to build this system, we realized quickly that trying to find a single "perfect" model was the wrong approach. The requirements for a consumer-facing web tool are inherently contradictory: the model needs to be massively complex to catch well-written disinformation, but it also needs to be incredibly small and fast so the user isn't staring at a loading spinner for five seconds. 
+
+Our solution was to stop looking for a silver bullet and instead build a specialized ensemble. We framed the core problem as a sequence classification task: given a string of text, we want the system to output a probability distribution representing how likely the text is to be deceptive versus factual.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\linewidth]{fig1.png}
+  \caption{The soft-voting ensemble mechanism processing text arrays concurrently.}
+  \label{fig:ensemble}
+\end{figure}
+
+\subsection{The Multi-Head Attention Mechanism}
+At the heart of both models we use is the multi-head self-attention mechanism. This is the math that actually allows the AI to "read" rather than just count words. When the text is fed into the system, the model creates three matrices for every word: a Query, a Key, and a Value. 
+
+You can think of it like a search engine operating inside a single sentence. The 'Query' is what a specific word is looking for, the 'Key' is what other words are advertising, and the 'Value' is the actual semantic weight. The model calculates the dot product of the Queries and Keys to create an attention score. 
+
+\subsection{DistilBERT: The High-Speed Baseline}
+To ensure the browser extension feels snappy and responsive, DistilBERT serves as our front-line processor. Standard BERT models are massive, often containing hundreds of millions of parameters. DistilBERT uses a clever training technique called Knowledge Distillation. 
+
+Instead of training DistilBERT from scratch on a pile of text, the researchers took a fully trained, massive BERT model (the "teacher") and a smaller, untrained model (the "student"). The student model is forced to mimic the exact probability outputs of the teacher. It doesn't just learn that a sentence is "Fake"; it learns the nuanced "dark knowledge" of the teacher. By compressing the network this way, DistilBERT sheds about 40\% of the parameters while retaining 97\% of the language understanding capabilities, making it twice as fast.
+
+\subsection{RoBERTa: The Deep Analytical Anchor}
+While DistilBERT is fast, we found during early testing that it sometimes struggled with highly subtle, state-sponsored propaganda that uses perfectly dry, academic language. To catch these, we bring in RoBERTa.
+
+RoBERTa is essentially BERT on steroids. The original BERT was trained by taking sentences, randomly blanking out 15\% of the words, and forcing the model to guess the blanks. RoBERTa introduced dynamic masking. Every time the model sees a piece of text during training, different words are hidden. This forces the neural network to develop a much deeper, more robust understanding of English syntax and factual relationships, rather than just memorizing patterns. It makes RoBERTa much slower, but incredibly accurate.
+
+\subsection{Soft-Voting Consensus}
+Instead of making one model the boss, we use a soft-voting ensemble approach. Once a user highlights a paragraph, that text is sent to both DistilBERT and RoBERTa simultaneously. 
+
+We deliberately chose not to use a "hard voting" system (where the models just cast a 1 or 0 vote). Hard voting throws away too much valuable information. If DistilBERT is 51\% sure an article is fake, and RoBERTa is 99\% sure it's real, a hard vote treats those as a 1-to-1 tie. 
+
+With soft voting, we take the raw continuous probability scores from both models and calculate the arithmetic mean. If the models vehemently disagree with each other—meaning the variance between their probability outputs exceeds a specific threshold—the backend flags the response.
+
+\section{System Architecture and Implementation Realities}
+Bridging the gap between a Python-based machine learning environment and a JavaScript-based web browser is notoriously tricky. We couldn't just run these models locally on the user's machine. A typical laptop does not have the dedicated Video RAM (VRAM) required to load a transformer model, and trying to force it would crash the user's browser. Therefore, we had to decouple the interface from the computation.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[
+        width=\textwidth,
+        keepaspectratio
+    ]{fig2.png}
+    \caption{Decoupled architecture showing the browser extension querying the asynchronous cloud infrastructure.}
+    \label{fig:architecture}
+\end{figure*}
+
+\subsection{Navigating Chrome Manifest V3}
+Building the presentation layer as a Google Chrome extension presented its own set of modern engineering hurdles. Recently, Google transitioned all extensions to the Manifest V3 security architecture. Under the old V2 rules, you could run a persistent background script that stayed alive as long as the browser was open. This made managing state and connections very easy.
+
+Manifest V3 killed persistent background scripts in favor of ephemeral Service Workers. These service workers are aggressively spun down by the browser if they sit idle for even a few seconds to save battery life. This meant our extension had to be incredibly lightweight and totally stateless. 
+
+When a user highlights text on a webpage, our content script captures the DOM string. It then passes a message to the ephemeral background service worker, which briefly wakes up just long enough to fire an asynchronous HTTP POST request containing the text payload to our external server. 
+
+\subsection{The Asynchronous FastAPI Backend}
+Because the Chrome extension is so lightweight, the backend server has to do all the heavy lifting. We built the computational layer using FastAPI, running on an ASGI (Asynchronous Server Gateway Interface) server called Uvicorn. 
+
+Why not use older, more common frameworks like Flask or Django? Because they are synchronous. If five users happen to highlight an article and hit the "Check" button at the exact same millisecond, a Flask server will process User 1, make Users 2 through 5 wait in line, and then process them one by one. FastAPI utilizes Python's asynchronous event loops to handle requests concurrently, drastically improving throughput.
+
+\subsection{The Token Cleansing Headache}
+One of the most frustrating practical issues we encountered was dealing with how transformer models actually read text. When we implemented the Explainable AI (Integrated Gradients) to highlight the specific words that triggered a "Fake" verdict, the initial results were unreadable for the average user.
+
+This is because models like RoBERTa and DistilBERT don't read whole words; they use Byte-Pair Encoding (BPE) and WordPiece tokenizers. To handle weird punctuation or uncommon words, the tokenizer chops words into sub-word fragments. For example, if a user highlighted the word "unbelievable," the tokenizer might slice it into three separate tokens: "un", "\#\#believ", and "\#\#able". 
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\linewidth]{fig3.png}
+  \caption{The user interface displaying sanitized token highlights generated by Integrated Gradients.}
+  \label{fig:ui}
+\end{figure}
+
+To fix this, we had to write a somewhat aggressive reverse-engineering heuristic on the backend. Before the FastAPI server sends the JSON response back to the browser, it catches the XAI output. It runs a script that strips out framework tokens (like \texttt{[CLS]}), deletes the weird "\#\#" suffixes, and stitches the fragmented sub-words back together based on their original index positions. Finally, it takes the top five most impactful, complete dictionary words and sends those to the frontend to be displayed as "Red Flag Tokens." It is absolutely vital for the user experience.
+
+\section{Experimental Setup and The Messy Reality of Data}
+To evaluate our architecture, we needed a dataset that reflected the actual chaos of the internet. We utilized the \textbf{WELFake} dataset \cite{b16}, a relatively new compilation that merges over 70,000 news articles from diverse repositories like Kaggle, McIntire, Reuters, and BuzzFeed Political. 
+
+\subsection{Data Sanitization}
+Academic datasets are rarely as clean as they claim to be. Before we could even begin training, we spent a significant amount of time just scrubbing the text. When scraping news articles, scrapers often accidentally grab HTML boilerplate, javascript snippets, or weird unicode characters (like smart quotes or em-dashes) that break tokenizers. We ran aggressive regular expressions across the 70,000 articles to strip out leftover tags, standardize the character encoding to UTF-8, and drop any rows that contained null values. 
+
+After cleaning, we had a perfectly balanced dataset: roughly 37,000 fake articles and 35,000 verified true articles. 
+
+\subsection{Training Protocols}
+We fine-tuned the models using PyTorch. One major decision we made was to artificially truncate every article to a maximum sequence length of 128 words. Transformer memory usage scales quadratically with sequence length. Trying to process 512 words takes exponentially more VRAM than 128 words. 
+
+In journalism, there is a concept called the "inverted pyramid"—the most crucial, factual information is almost always placed in the very first paragraph, while background details are pushed to the bottom. By cutting off the articles at 128 words, we forced the model to focus strictly on the core claims of the headline and the opening paragraph. This constraint massively reduced our training time and GPU costs without causing a noticeable drop in accuracy. 
+
+\section{Results and Qualitative Error Analysis}
+The quantitative metrics were highly encouraging. On the blind 20\% test set, the standalone DistilBERT model achieved a 94.1\% accuracy, while the standalone RoBERTa hit 95.8\%. When combined into our soft-voting ensemble, the system pushed to a peak accuracy of 96.4\% with an F1-Score of 96.5\%. 
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig4.png}
+  \caption{Quantitative comparison demonstrating the superiority of the ensemble approach over standalone models.}
+  \label{fig:results}
+\end{figure}
+
+However, raw numbers don't tell the whole story. The true value of the ensemble approach became blatantly obvious when we conducted qualitative error analysis—actually looking at the specific articles the models got wrong.
+
+\subsection{Case Study 1: The Sarcasm and Emotion Trap}
+During testing, we fed the system a highly emotional, but entirely factual, opinion piece published by a major left-leaning news network. The author used extremely hyperbolic language: "The recent congressional vote is an absolutely devastating, catastrophic policy failure."
+
+When DistilBERT read this, it panicked. DistilBERT has fewer parameters and often over-indexes on stylistic cues rather than deep semantics. It saw the cluster of extreme adjectives and immediately flagged the article as Fake News with a 72\% confidence score. It assumed it was reading an angry blog post.
+
+RoBERTa, however, correctly parsed the grammatical structure of an editorial opinion. It recognized that while the tone was angry, the underlying claim about the congressional vote was a standard journalistic format. RoBERTa scored it as 85\% Real. When the soft-voting ensemble mathematically averaged these two, it pulled DistilBERT's error back to reality, resulting in a final, correct classification of "Real" for the end user.
+
+\subsection{Case Study 2: State-Sponsored "Dry" Propaganda}
+Conversely, we tested a piece of state-sponsored disinformation regarding a military conflict. The bad actors who wrote this article were professionals. They did not use exclamation marks, they did not use emotional language, and they perfectly mimicked the dry, boring, objective tone of an Associated Press wire report. 
+
+DistilBERT was completely fooled. It scanned the text, found no stylistic red flags, and rubber-stamped it as Real News. RoBERTa, however, caught the semantic contradictions buried in the text regarding geographic locations and chronological dates. RoBERTa flagged it heavily as Fake. Again, the ensemble successfully caught the deceptive article.
+
+\subsection{Latency Profiling in Production}
+All of this accuracy is useless if the tool is too slow to use. Executing the text payload entirely through both massive transformer networks takes merely 145 milliseconds, largely due to PyTorch memory optimizations. Even in the worst-case scenario—where the text is flagged as Fake and the server has to grind through the heavy integral calculus required for the XAI explanations—the absolute maximum processing time peaks at approximately 235 milliseconds. To the human eye, this feels instantaneous.
+
+\section{Ethical Considerations, Limitations, and Future Work}
+While the proposed architecture demonstrates excellent performance, deploying AI to moderate human truth is a philosophical minefield.
+
+\subsection{Concept Drift and Temporal Decay}
+A fundamental limitation of all static Machine Learning models is "concept drift." A model's comprehension of the world is permanently locked to the specific geopolitical and social reality represented in its training data at the time it was compiled. If an unprecedented global event occurs tomorrow, our model possesses zero contextual baseline for the new vocabulary. Future iterations will require Continuous Active Learning (CAL) pipelines to prevent this decay.
+
+\subsection{The Generative AI Arms Race}
+We also must acknowledge that the dataset we used for training (WELFake) is largely composed of human-written fake news. We are currently entering an arms race against generative AI. Bad actors are increasingly using models like GPT-4 to mass-produce disinformation. Because these LLMs write with perfect grammar, they may bypass the stylistic triggers our models rely on. We will soon need to introduce adversarial training.
+
+\subsection{Data Privacy Concerns}
+Finally, the deployment of cloud-reliant browser extensions introduces severe privacy implications. By its nature, the Chrome extension must transmit the exact text highlighted by the user over the open internet. To mitigate this, stringent data security protocols are non-negotiable. Our backend enforces a strict "zero-retention" policy. Incoming text payloads are instantaneously purged from memory upon returning the JSON response. Nothing is ever written to a database. 
+
+\section{Conclusion}
+This paper demonstrates that the fight against automated misinformation does not have to be relegated to massive tech corporations or delayed human fact-checkers. By synergistically combining the agile speed of DistilBERT with the deep contextual accuracy of RoBERTa in a soft-voting ensemble, we engineered an automated verification tool that operates seamlessly within the user's natural browsing habits. 
+
+Achieving a 96.4\% accuracy rate proves the mathematical viability of the approach, but the true success of the system lies in its transparency. By integrating and aggressively sanitizing Integrated Gradients, we proved that complex deep learning networks do not need to operate as dictatorial black boxes. Providing users with clear, token-level visual explanations transforms the tool from a simple algorithmic filter into a collaborative educational asset.
+
+\begin{thebibliography}{00}
+\bibitem{b1} A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin, ``Attention is all you need,'' in \textit{Advances in Neural Information Processing Systems}, 2017, pp. 5998-6008.
+\bibitem{b2} J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, ``BERT: Pre-training of deep bidirectional transformers for language understanding,'' \textit{arXiv preprint arXiv:1810.04805}, 2018.
+\bibitem{b3} Y. Liu, M. Ott, N. Goyal, J. Du, M. Joshi, D. Chen, O. Levy, M. Lewis, L. Zettlemoyer, and V. Stoyanov, ``RoBERTa: A robustly optimized BERT pretraining approach,'' \textit{arXiv preprint arXiv:1907.11692}, 2019.
+\bibitem{b4} X. Zhou and R. Zafarani, ``A survey of fake news: Fundamental theories, detection methods, and opportunities,'' \textit{ACM Computing Surveys (CSUR)}, vol. 53, no. 5, pp. 1-40, 2020.
+\bibitem{b5} H. Ahmed, I. Traore, and S. Saad, ``Detection of online fake news using n-gram analysis and machine learning techniques,'' in \textit{International Conference on Intelligent, Secure, and Dependable Systems in Distributed and Cloud Environments}, Springer, 2017, pp. 127-138.
+\bibitem{b6} V. Sanh, L. Debut, J. Chaumond, and T. Wolf, ``DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter,'' \textit{arXiv preprint arXiv:1910.01108}, 2019.
+\bibitem{b7} M. Sundararajan, A. Taly, and Q. Yan, ``Axiomatic attribution for deep networks,'' in \textit{Proceedings of the 34th International Conference on Machine Learning}, 2017, pp. 3319-3328.
+\bibitem{b8} W. Y. Wang, ``"Liar, Liar Pants on Fire": A New Benchmark Dataset for Fake News Detection,'' in \textit{Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics}, 2017.
+\bibitem{b9} S. Vosoughi, D. Roy, and S. Aral, ``The spread of true and false news online,'' \textit{Science}, vol. 359, no. 6380, pp. 1146-1151, 2018.
+\bibitem{b10} R. K. Kaliyar, A. Goswami, P. Narang, and S. Sinha, ``FNDNet--A deep convolutional neural network for fake news detection,'' \textit{Cognitive Systems Research}, vol. 61, pp. 32-44, 2020.
+\bibitem{b11} H. Ahmed, I. Traore, and S. Saad, ``Detecting opinion spams and fake news using text classification,'' \textit{Security and Privacy}, vol. 1, no. 1, e9, 2018.
+\bibitem{b12} K. Shu, A. Sliva, S. Wang, J. Tang, and H. Liu, ``Fake news detection on social media: A data mining perspective,'' \textit{ACM SIGKDD Explorations Newsletter}, vol. 19, no. 1, pp. 22-36, 2017.
+\bibitem{b13} C. Castillo, M. Mendoza, and B. Poblete, ``Information credibility on twitter,'' in \textit{Proceedings of the 20th international conference on World wide web}, 2011, pp. 675-684.
+\bibitem{b14} M. T. Ribeiro, S. Singh, and C. Guestrin, ``"Why should i trust you?" Explaining the predictions of any classifier,'' in \textit{Proceedings of the 22nd ACM SIGKDD international conference on knowledge discovery and data mining}, 2016, pp. 1135-1144.
+\bibitem{b15} S. M. Lundberg and S. I. Lee, ``A unified approach to interpreting model predictions,'' in \textit{Advances in neural information processing systems}, 2017, pp. 4765-4774.
+\bibitem{b16} P. K. Verma, P. Agrawal, I. Amorim, and R. Prodan, ``WELFake: Word Embedding Over Linguistic Features for Fake News Detection,'' \textit{IEEE Transactions on Computational Social Systems}, vol. 8, no. 4, pp. 881-893, 2021.
+\end{thebibliography}
+
+\end{document}
